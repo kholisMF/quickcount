@@ -1,6 +1,8 @@
 <?php
 $cfg = require __DIR__ . '/config.php';
 require __DIR__ . '/includes/helpers.php';
+$settings = load_settings($cfg);
+$cfg = apply_settings($cfg, $settings);
 $activePage = 'dashboard';
 ?>
 <!DOCTYPE html>
@@ -113,6 +115,7 @@ $activePage = 'dashboard';
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 <script src="<?= asset_url('assets/js/dashboard.js') ?>"></script>
+<script src="<?= asset_url('assets/js/settings-watch.js') ?>"></script>
 <script src="<?= asset_url('assets/js/reset.js') ?>"></script>
 </body>
 </html>

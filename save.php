@@ -7,8 +7,10 @@
 
 header('Content-Type: application/json; charset=utf-8');
 
-require __DIR__ . '/includes/FirebaseClient.php';
+require __DIR__ . '/includes/helpers.php';
 $cfg = require __DIR__ . '/config.php';
+$settings = load_settings($cfg);
+$cfg = apply_settings($cfg, $settings);
 
 function respond($httpCode, array $body)
 {

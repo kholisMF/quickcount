@@ -1,6 +1,8 @@
 <?php
 $cfg = require __DIR__ . '/config.php';
 require __DIR__ . '/includes/helpers.php';
+$settings = load_settings($cfg);
+$cfg = apply_settings($cfg, $settings);
 $activePage = 'input';
 ?>
 <!DOCTYPE html>
@@ -19,7 +21,6 @@ $activePage = 'input';
         <div class="topbar">
             <div>
                 <h1>Input Transaksi Suara per TPS</h1>
-                <div class="breadcrumb">Pilih TPS lalu ketuk + / − untuk menghitung suara — setiap perubahan otomatis tersimpan ke database</div>
             </div>
             <span class="live-pill"><span class="live-dot"></span> Connected</span>
         </div>
@@ -96,6 +97,7 @@ $activePage = 'input';
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <script src="<?= asset_url('assets/js/input.js') ?>"></script>
+<script src="<?= asset_url('assets/js/settings-watch.js') ?>"></script>
 <script src="<?= asset_url('assets/js/reset.js') ?>"></script>
 </body>
 </html>
