@@ -68,28 +68,47 @@ $activePage = 'settings';
             <div class="form-card" style="max-width:100%;">
                 <div class="panel-head" style="margin-bottom:16px;">
                     <h2>Daftar Calon Kepala Desa</h2>
-                    <span class="hint">warna dipakai di pie chart &amp; seluruh dashboard</span>
+                    <span class="hint">atur nomor urut, nama, dan warna masing-masing calon</span>
                 </div>
 
                 <div id="candidate-rows" class="cand-rows">
                     <?php foreach ($cfg['candidates'] as $c): ?>
                         <div class="cand-row" data-id="<?= htmlspecialchars($c['id']) ?>">
-                            <input type="color" class="cand-color" value="<?= htmlspecialchars($c['warna']) ?>" title="Warna calon">
-                            <input type="text" class="cand-name" value="<?= htmlspecialchars($c['nama']) ?>" placeholder="Nama calon">
+                            <div class="cand-field cand-field--no">
+                                <label>No.</label>
+                                <input type="number" min="1" step="1" class="cand-no" value="<?= (int)($c['no'] ?? 0) ?>" placeholder="0">
+                            </div>
+                            <div class="cand-field cand-field--color">
+                                <label>Warna</label>
+                                <input type="color" class="cand-color" value="<?= htmlspecialchars($c['warna']) ?>" title="Warna calon">
+                            </div>
+                            <div class="cand-field cand-field--name">
+                                <label>Nama Calon</label>
+                                <input type="text" class="cand-name" value="<?= htmlspecialchars($c['nama']) ?>" placeholder="Nama calon" autocomplete="off">
+                            </div>
                             <button type="button" class="row-remove" title="Hapus calon">&times;</button>
                         </div>
                     <?php endforeach; ?>
                 </div>
                 <button type="button" class="btn-add" id="btn-add-candidate">+ Tambah Calon</button>
 
-                <div class="cand-row" style="margin-top:22px;border-top:1px dashed var(--line);padding-top:20px;">
-                    <input type="color" id="tidaksah-color" value="<?= htmlspecialchars($cfg['tidak_sah']['warna']) ?>" title="Warna suara tidak sah">
-                    <input type="text" id="tidaksah-name" value="<?= htmlspecialchars($cfg['tidak_sah']['nama']) ?>" placeholder="Label suara tidak sah">
-                    <span class="cf-name" style="width:90px;text-align:right;">tetap ada</span>
+                <div class="cand-row cand-row--tidaksah" style="margin-top:22px;border-top:1px dashed var(--line);padding-top:20px;">
+                    <div class="cand-field cand-field--no">
+                        <label>&nbsp;</label>
+                        <span class="cf-name" style="font-size:12px;color:var(--ink-faint);">—</span>
+                    </div>
+                    <div class="cand-field cand-field--color">
+                        <label>Warna</label>
+                        <input type="color" id="tidaksah-color" value="<?= htmlspecialchars($cfg['tidak_sah']['warna']) ?>" title="Warna suara tidak sah">
+                    </div>
+                    <div class="cand-field cand-field--name">
+                        <label>Label Suara Tidak Sah</label>
+                        <input type="text" id="tidaksah-name" value="<?= htmlspecialchars($cfg['tidak_sah']['nama']) ?>" placeholder="Label suara tidak sah">
+                    </div>
+                    <span class="cf-name" style="width:30px;text-align:right;color:var(--ink-faint);font-size:11px;">tetap</span>
                 </div>
             </div>
 
-            <!-- ===== TPS & Hak Pilih ===== -->
             <!-- ===== TPS, Saksi, Akun Petugas & Hak Pilih ===== -->
             <div class="form-card" style="max-width:100%;margin-top:18px;">
                 <div class="panel-head" style="margin-bottom:16px;">

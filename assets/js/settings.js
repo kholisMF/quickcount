@@ -47,18 +47,36 @@
     }
 
     // ---------- Candidate rows ----------
-    function addCandidateRow(id, nama, warna) {
+    function addCandidateRow(id, no, nama, warna) {
         const row = document.createElement('div');
         row.className = 'cand-row';
         row.dataset.id = id || genId();
         row.innerHTML = `
-            <input type="color" class="cand-color" value="${warna || '#2563EB'}" title="Warna calon">
-            <input type="text" class="cand-name" value="${nama || ''}" placeholder="Nama calon">
+            <div class="cand-field cand-field--no">
+                <label>No.</label>
+                <input type="number" min="1" step="1" class="cand-no" value="${no || ''}" placeholder="0">
+            </div>
+            <div class="cand-field cand-field--color">
+                <label>Warna</label>
+                <input type="color" class="cand-color" value="${warna || '#2563EB'}" title="Warna calon">
+            </div>
+            <div class="cand-field cand-field--name">
+                <label>Nama Calon</label>
+                <input type="text" class="cand-name" value="${nama || ''}" placeholder="Nama calon" autocomplete="off">
+            </div>
             <button type="button" class="row-remove" title="Hapus calon">&times;</button>
         `;
         candidateRows.appendChild(row);
         bindRowRemove(row);
+        bindCandidateRowInputs(row);
         return row;
+    }
+
+    function bindCandidateRowInputs(row) {
+        row.querySelectorAll('input').forEach(inp => {
+            inp.addEventListener('input', markDirty);
+            inp.addEventListener('change', markDirty);
+        });
     }
 
     function bindRowRemove(row) {
@@ -72,10 +90,16 @@
         });
     }
 
-    candidateRows.querySelectorAll('.cand-row').forEach(bindRowRemove);
+    candidateRows.querySelectorAll('.cand-row').forEach(row => {
+        bindRowRemove(row);
+        bindCandidateRowInputs(row);
+    });
 
     btnAddCandidate.addEventListener('click', () => {
-        addCandidateRow(null, '', '#2563EB');
+        const existingNos = Array.from(candidateRows.querySelectorAll('.cand-no'))
+            .map(inp => Number(inp.value || 0));
+        const nextNo = existingNos.length ? Math.max(...existingNos) + 1 : 1;
+        addCandidateRow(null, nextNo, '', '#2563EB');
         markDirty();
     });
 
@@ -201,12 +225,24 @@
     btnSave.addEventListener('click', async () => {
         const candidates = Array.from(candidateRows.querySelectorAll('.cand-row')).map(row => ({
             id: row.dataset.id,
+            no:    Number(row.querySelector('.cand-no').value || 0),
             nama: row.querySelector('.cand-name').value.trim(),
             warna: row.querySelector('.cand-color').value,
         }));
 
         if (candidates.some(c => c.nama === '')) {
             showToast('Nama calon tidak boleh kosong.', 'error');
+            return;
+        }
+
+        if (candidates.some(c => !c.no || c.no < 1)) {
+            showToast('Nomor urut tiap calon wajib diisi (minimal 1).', 'error');
+            return;
+        }
+
+        const nos = candidates.map(c => c.no);
+        if (new Set(nos).size !== nos.length) {
+            showToast('Nomor urut antar calon tidak boleh sama.', 'error');
             return;
         }
 

@@ -26,6 +26,21 @@ if (count($candidates) < 1) {
     echo json_encode(['ok' => false, 'message' => 'Minimal 1 calon.']);
     exit;
 }
+
+$nos = [];
+foreach ($candidates as $i => $c) {
+    $no = (int)($c['no'] ?? 0);
+    if ($no < 1) {
+        echo json_encode(['ok' => false, 'message' => 'Nomor urut calon ke-' . ($i+1) . ' wajib diisi (minimal 1).']);
+        exit;
+    }
+    if (isset($nos[$no])) {
+        echo json_encode(['ok' => false, 'message' => 'Nomor urut ' . $no . ' dipakai lebih dari satu calon.']);
+        exit;
+    }
+    $nos[$no] = true;
+}
+
 foreach ($candidates as $c) {
     if (empty($c['nama']) || empty($c['id'])) {
         echo json_encode(['ok' => false, 'message' => 'Data calon tidak lengkap.']);
