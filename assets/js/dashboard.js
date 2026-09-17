@@ -1,44 +1,48 @@
 (function () {
     'use strict';
 
-    // ---------- Init Firebase (read-only listener) ----------
+    if (!window.FIREBASE_CONFIG || !window.CANDIDATES || !window.TIDAK_SAH || !window.TPS_LIST) {
+        console.error('Dashboard: konfigurasi window belum lengkap.');
+        return;
+    }
+
     firebase.initializeApp(window.FIREBASE_CONFIG);
     const db = firebase.database();
     const suaraRef = db.ref(window.DB_PATH + '/suara');
 
     const CANDIDATES = window.CANDIDATES;
     const TIDAK_SAH = window.TIDAK_SAH;
-    const TPS_LIST = window.TPS_LIST;
-    const TOTAL_DPT = window.TOTAL_DPT;
+    const TPS_LIST   = window.TPS_LIST;
+    const TOTAL_DPT  = Number(window.TOTAL_DPT || 0);
+
+    const SURFACE_BORDER_COLOR = '#FFFFFF';
+    const EMPTY_PIE_COLOR      = '#E8F0FB';
 
     let pieChart = null;
 
-    // ---------- DOM refs ----------
     const el = {
-        lastUpdated: document.getElementById('last-updated'),
+        lastUpdated:    document.getElementById('last-updated'),
         statSuaraMasuk: document.getElementById('stat-suara-masuk'),
-        barSuaraMasuk: document.getElementById('bar-suara-masuk'),
-        statPartisipasi: document.getElementById('stat-partisipasi'),
+        barSuaraMasuk:  document.getElementById('bar-suara-masuk'),
+        statPartisipasi:document.getElementById('stat-partisipasi'),
         barPartisipasi: document.getElementById('bar-partisipasi'),
-        statTpsLapor: document.getElementById('stat-tps-lapor'),
-        barTpsLapor: document.getElementById('bar-tps-lapor'),
-        statUnggul: document.getElementById('stat-unggul'),
-        barUnggul: document.getElementById('bar-unggul'),
-        legend: document.getElementById('legend'),
-        leaderboard: document.getElementById('leaderboard'),
-        tbody: document.getElementById('tps-table-body'),
-        centerPct: document.getElementById('chart-center-pct'),
+        statTpsLapor:   document.getElementById('stat-tps-lapor'),
+        barTpsLapor:    document.getElementById('bar-tps-lapor'),
+        statUnggul:     document.getElementById('stat-unggul'),
+        barUnggul:      document.getElementById('bar-unggul'),
+        legend:         document.getElementById('legend'),
+        leaderboard:    document.getElementById('leaderboard'),
+        tbody:          document.getElementById('tps-table-body'),
+        centerPct:      document.getElementById('chart-center-pct'),
     };
 
     function fmt(n) {
         return new Intl.NumberFormat('id-ID').format(n || 0);
     }
 
-    // ---------- Core: recompute + render on every realtime event ----------
     function handleSnapshot(snapshot) {
-        const data = snapshot.val() || {}; // { tps01: {yarpan:.., marta:.., ...}, ... }
+        const data = snapshot.val() || {};
 
-        // Aggregate totals per candidate + tidak sah
         const totals = {};
         CANDIDATES.forEach(c => totals[c.id] = 0);
         totals[TIDAK_SAH.id] = 0;
@@ -69,20 +73,24 @@
         renderLeaderboard(totals, totalSuaraMasuk);
         renderTable(perTps);
 
-        el.lastUpdated.textContent = 'Diperbarui otomatis ' + new Date().toLocaleTimeString('id-ID');
+        if (el.lastUpdated) {
+            el.lastUpdated.textContent = 'Diperbarui otomatis ' + new Date().toLocaleTimeString('id-ID');
+        }
     }
 
     function renderStats(totalSuaraMasuk, tpsLaporCount, totals) {
-        el.statSuaraMasuk.innerHTML = fmt(totalSuaraMasuk) + ' <small>/ ' + fmt(TOTAL_DPT) + '</small>';
+        if (el.statSuaraMasuk) {
+            el.statSuaraMasuk.innerHTML = fmt(totalSuaraMasuk) + ' <small>/ ' + fmt(TOTAL_DPT) + '</small>';
+        }
         const pctMasuk = TOTAL_DPT ? (totalSuaraMasuk / TOTAL_DPT * 100) : 0;
-        el.barSuaraMasuk.style.width = Math.min(pctMasuk, 100).toFixed(1) + '%';
+        if (el.barSuaraMasuk) el.barSuaraMasuk.style.width = Math.min(pctMasuk, 100).toFixed(1) + '%';
 
-        el.statPartisipasi.textContent = pctMasuk.toFixed(1) + '%';
-        el.barPartisipasi.style.width = Math.min(pctMasuk, 100).toFixed(1) + '%';
+        if (el.statPartisipasi) el.statPartisipasi.textContent = pctMasuk.toFixed(1) + '%';
+        if (el.barPartisipasi)  el.barPartisipasi.style.width = Math.min(pctMasuk, 100).toFixed(1) + '%';
 
         const tpsPct = TPS_LIST.length ? (tpsLaporCount / TPS_LIST.length * 100) : 0;
-        el.statTpsLapor.innerHTML = tpsLaporCount + ' <small>/ ' + TPS_LIST.length + ' TPS</small>';
-        el.barTpsLapor.style.width = tpsPct.toFixed(1) + '%';
+        if (el.statTpsLapor) el.statTpsLapor.innerHTML = tpsLaporCount + ' <small>/ ' + TPS_LIST.length + ' TPS</small>';
+        if (el.barTpsLapor)  el.barTpsLapor.style.width = tpsPct.toFixed(1) + '%';
 
         let leader = null;
         CANDIDATES.forEach(c => {
@@ -90,13 +98,15 @@
         });
         if (leader && totals[leader.id] > 0) {
             const leaderPct = totalSuaraMasuk ? (totals[leader.id] / totalSuaraMasuk * 100) : 0;
-            el.statUnggul.textContent = leader.nama;
-            el.statUnggul.style.color = leader.warna;
-            el.barUnggul.style.width = leaderPct.toFixed(1) + '%';
-            el.barUnggul.style.background = leader.warna;
+            if (el.statUnggul) el.statUnggul.textContent = leader.nama;
+            // (warna teks dibiarkan default — lebih aman untuk tema terang)
+            if (el.barUnggul) {
+                el.barUnggul.style.width = leaderPct.toFixed(1) + '%';
+                el.barUnggul.style.background = leader.warna;
+            }
         } else {
-            el.statUnggul.textContent = '\u2014';
-            el.barUnggul.style.width = '0%';
+            if (el.statUnggul) el.statUnggul.textContent = '\u2014';
+            if (el.barUnggul)  el.barUnggul.style.width = '0%';
         }
     }
 
@@ -107,7 +117,7 @@
 
         const hasData = totalSuaraMasuk > 0;
         const dataValues = hasData ? values : [1];
-        const dataColors = hasData ? colors : ['#1C2740'];
+        const dataColors = hasData ? colors : [EMPTY_PIE_COLOR];
         const dataLabels = hasData ? labels : ['Belum ada data'];
 
         if (pieChart) {
@@ -116,7 +126,9 @@
             pieChart.data.datasets[0].backgroundColor = dataColors;
             pieChart.update();
         } else {
-            const ctx = document.getElementById('pieChart').getContext('2d');
+            const canvas = document.getElementById('pieChart');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
             pieChart = new Chart(ctx, {
                 type: 'doughnut',
                 data: {
@@ -124,7 +136,7 @@
                     datasets: [{
                         data: dataValues,
                         backgroundColor: dataColors,
-                        borderColor: '#0F172A',
+                        borderColor: SURFACE_BORDER_COLOR,
                         borderWidth: 3,
                         hoverOffset: 6,
                     }]
@@ -150,24 +162,27 @@
         }
 
         const pctOfDpt = TOTAL_DPT ? (totalSuaraMasuk / TOTAL_DPT * 100) : 0;
-        el.centerPct.textContent = pctOfDpt.toFixed(1) + '%';
+        if (el.centerPct) el.centerPct.textContent = pctOfDpt.toFixed(1) + '%';
     }
 
     function renderLegend(totals, totalSuaraMasuk) {
+        if (!el.legend) return;
         const items = [...CANDIDATES, TIDAK_SAH];
         el.legend.innerHTML = items.map(c => {
             const v = totals[c.id] || 0;
             const pct = totalSuaraMasuk ? (v / totalSuaraMasuk * 100) : 0;
+            const votes = totalSuaraMasuk > 0 ? fmt(v) + ' suara' : '&mdash;';
             return `<div class="legend-row">
                 <span class="legend-dot" style="background:${c.warna}"></span>
                 <span class="legend-name">${c.nama}</span>
-                <span class="legend-votes">${fmt(v)} suara</span>
+                <span class="legend-votes">${votes}</span>
                 <span class="legend-pct">${pct.toFixed(1)}%</span>
             </div>`;
         }).join('');
     }
 
     function renderLeaderboard(totals, totalSuaraMasuk) {
+        if (!el.leaderboard) return;
         const ranked = [...CANDIDATES].sort((a, b) => totals[b.id] - totals[a.id]);
         el.leaderboard.innerHTML = ranked.map((c, i) => {
             const v = totals[c.id] || 0;
@@ -185,6 +200,7 @@
     }
 
     function renderTable(perTps) {
+        if (!el.tbody) return;
         el.tbody.innerHTML = TPS_LIST.map(tps => {
             const row = perTps[tps.id];
             const cells = CANDIDATES.map(c => `<td class="num">${row ? fmt(row[c.id] || 0) : '&mdash;'}</td>`).join('');
@@ -199,9 +215,7 @@
                 : `<span class="badge-status out"><span class="dot"></span>Belum lapor</span>`;
 
             return `<tr>
-                <td>
-                    <div class="tps-name">${tps.nama}</div>
-                </td>
+                <td><div class="tps-name">${tps.nama}</div></td>
                 ${cells}
                 <td class="num">${row ? fmt(tidakSah) : '&mdash;'}</td>
                 <td class="num"><b>${row ? fmt(total) : '&mdash;'}</b></td>
@@ -211,8 +225,7 @@
         }).join('');
     }
 
-    // ---------- Event handler: fires on every insert/update in Firebase ----------
     suaraRef.on('value', handleSnapshot, (error) => {
-        el.lastUpdated.textContent = 'Gagal memuat data realtime: ' + error.message;
+        if (el.lastUpdated) el.lastUpdated.textContent = 'Gagal memuat data realtime: ' + error.message;
     });
 })();

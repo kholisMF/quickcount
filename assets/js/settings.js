@@ -42,13 +42,17 @@
         return 'cand' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
     }
 
+    function genTpsId() {
+        return 'tps' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    }
+
     // ---------- Candidate rows ----------
     function addCandidateRow(id, nama, warna) {
         const row = document.createElement('div');
         row.className = 'cand-row';
         row.dataset.id = id || genId();
         row.innerHTML = `
-            <input type="color" class="cand-color" value="${warna || '#D4A537'}" title="Warna calon">
+            <input type="color" class="cand-color" value="${warna || '#2563EB'}" title="Warna calon">
             <input type="text" class="cand-name" value="${nama || ''}" placeholder="Nama calon">
             <button type="button" class="row-remove" title="Hapus calon">&times;</button>
         `;
@@ -71,35 +75,78 @@
     candidateRows.querySelectorAll('.cand-row').forEach(bindRowRemove);
 
     btnAddCandidate.addEventListener('click', () => {
-        addCandidateRow(null, '', '#D4A537');
+        addCandidateRow(null, '', '#2563EB');
         markDirty();
     });
 
     // ---------- TPS rows ----------
     function tpsRowCount() {
-        return tpsDptRows.querySelectorAll('.tps-dpt-row').length;
+        return tpsDptRows.querySelectorAll('.tps-card').length;
     }
 
     function renumberTpsRows() {
-        tpsDptRows.querySelectorAll('.tps-dpt-row').forEach((row, i) => {
-            row.querySelector('.tps-dpt-label').textContent = 'TPS ' + (i + 1);
+        tpsDptRows.querySelectorAll('.tps-card').forEach((row, i) => {
+            row.querySelector('.tps-card-num').textContent = 'TPS ' + (i + 1);
         });
         tpsCountDisplay.textContent = tpsRowCount();
     }
 
-    function addTpsRow(dpt) {
-        const row = document.createElement('div');
-        row.className = 'tps-dpt-row';
-        row.innerHTML = `
-            <span class="tps-dpt-label">TPS</span>
-            <input type="number" min="0" step="1" class="tps-dpt-input" value="${dpt || 0}">
-        `;
-        tpsDptRows.appendChild(row);
-        row.querySelector('.tps-dpt-input').addEventListener('input', () => {
+    function bindTpsCardInputs(card) {
+        card.querySelectorAll('input').forEach(inp => {
+            inp.addEventListener('input', () => {
+                recalcTpsSum();
+                markDirty();
+            });
+        });
+        card.querySelector('.tps-card-remove').addEventListener('click', () => {
+            if (tpsRowCount() <= 1) {
+                showToast('Minimal harus ada 1 TPS.', 'error');
+                return;
+            }
+            card.remove();
+            renumberTpsRows();
             recalcTpsSum();
             markDirty();
         });
-        return row;
+    }
+
+    function addTpsCard(data) {
+        const d = data || {};
+        const n = tpsRowCount() + 1;
+        const card = document.createElement('div');
+        card.className = 'tps-card';
+        card.dataset.id = d.id || genTpsId();
+        card.innerHTML = `
+            <div class="tps-card-head">
+                <span class="tps-card-num">TPS ${n}</span>
+                <button type="button" class="tps-card-remove" title="Hapus TPS ini">&times;</button>
+            </div>
+            <div class="tps-card-grid">
+                <div class="tps-field">
+                    <label>Nama TPS</label>
+                    <input type="text" class="tps-nama-input" value="${d.nama || ('TPS ' + n)}" placeholder="Contoh: TPS 1 Dusun Krajan" autocomplete="off">
+                </div>
+                <div class="tps-field">
+                    <label>Jumlah DPT</label>
+                    <input type="number" min="0" step="1" class="tps-dpt-input" value="${d.dpt || 0}" placeholder="0">
+                </div>
+                <div class="tps-field">
+                    <label>Nama Saksi / Petugas</label>
+                    <input type="text" class="tps-saksi-input" value="${d.saksi || ''}" placeholder="Contoh: Budi Santoso" autocomplete="off">
+                </div>
+                <div class="tps-field">
+                    <label>Username Login</label>
+                    <input type="text" class="tps-user-input" value="${d.username || ('tps' + n)}" placeholder="username" autocomplete="off">
+                </div>
+                <div class="tps-field">
+                    <label>Password Login</label>
+                    <input type="text" class="tps-pass-input" value="${d.password || ('tps' + n)}" placeholder="password" autocomplete="off">
+                </div>
+            </div>
+        `;
+        tpsDptRows.appendChild(card);
+        bindTpsCardInputs(card);
+        return card;
     }
 
     tpsCountPlus.addEventListener('click', () => {
@@ -107,7 +154,7 @@
             showToast('Maksimal 50 TPS.', 'error');
             return;
         }
-        addTpsRow(0);
+        addTpsCard(null);
         renumberTpsRows();
         recalcTpsSum();
         markDirty();
@@ -118,19 +165,15 @@
             showToast('Minimal harus ada 1 TPS.', 'error');
             return;
         }
-        const rows = tpsDptRows.querySelectorAll('.tps-dpt-row');
-        rows[rows.length - 1].remove();
+        const cards = tpsDptRows.querySelectorAll('.tps-card');
+        cards[cards.length - 1].remove();
         renumberTpsRows();
         recalcTpsSum();
         markDirty();
     });
 
-    tpsDptRows.querySelectorAll('.tps-dpt-input').forEach(inp => {
-        inp.addEventListener('input', () => {
-            recalcTpsSum();
-            markDirty();
-        });
-    });
+    // Bind initial TPS cards
+    tpsDptRows.querySelectorAll('.tps-card').forEach(bindTpsCardInputs);
 
     function recalcTpsSum() {
         let sum = 0;
@@ -167,9 +210,25 @@
             return;
         }
 
-        const tps = Array.from(tpsDptRows.querySelectorAll('.tps-dpt-input')).map(inp => ({
-            dpt: Number(inp.value || 0),
+        const tps = Array.from(tpsDptRows.querySelectorAll('.tps-card')).map((card, i) => ({
+            id:       card.dataset.id,
+            nama:     card.querySelector('.tps-nama-input').value.trim() || ('TPS ' + (i + 1)),
+            dpt:      Number(card.querySelector('.tps-dpt-input').value || 0),
+            saksi:    card.querySelector('.tps-saksi-input').value.trim(),
+            username: card.querySelector('.tps-user-input').value.trim(),
+            password: card.querySelector('.tps-pass-input').value.trim(),
         }));
+
+        if (tps.some(t => !t.username || !t.password)) {
+            showToast('Username & password tiap TPS wajib diisi.', 'error');
+            return;
+        }
+
+        const usernames = tps.map(t => t.username.toLowerCase());
+        if (new Set(usernames).size !== usernames.length) {
+            showToast('Username antar TPS tidak boleh sama.', 'error');
+            return;
+        }
 
         const payload = {
             password: (document.getElementById('settings-token') || {}).value || '',

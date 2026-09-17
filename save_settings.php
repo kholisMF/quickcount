@@ -1,120 +1,88 @@
 <?php
-/**
- * Endpoint penyimpanan pengaturan (calon, warna, jumlah TPS, DPT).
- * Menulis ke node 'quickcount/settings' — terpisah total dari
- * 'quickcount/suara' & 'quickcount/log', sehingga tombol Reset Data
- * tidak pernah menyentuh pengaturan ini.
- */
-
-header('Content-Type: application/json; charset=utf-8');
-
-require __DIR__ . '/includes/helpers.php';
 $cfg = require __DIR__ . '/config.php';
+require __DIR__ . '/includes/helpers.php';
+
+header('Content-Type: application/json');
 
 const SETTINGS_PASSWORD = 'settingdata';
 
-function respond($httpCode, array $body)
-{
-    http_response_code($httpCode);
-    echo json_encode($body);
+$body = json_decode(file_get_contents('php://input'), true);
+if (!is_array($body)) {
+    echo json_encode(['ok' => false, 'message' => 'Payload tidak valid.']);
     exit;
 }
 
-if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    respond(405, ['ok' => false, 'message' => 'Metode tidak diizinkan.']);
+if (($body['password'] ?? '') !== SETTINGS_PASSWORD) {
+    echo json_encode(['ok' => false, 'message' => 'Sesi pengaturan tidak valid. Silakan buka ulang halaman.']);
+    exit;
 }
 
-$raw = file_get_contents('php://input');
-$input = json_decode($raw, true);
+$candidates = $body['candidates'] ?? [];
+$tps        = $body['tps'] ?? [];
+$tidakSah   = $body['tidak_sah'] ?? [];
+$totalDpt   = (int)($body['total_dpt'] ?? 0);
 
-if (!is_array($input)) {
-    respond(400, ['ok' => false, 'message' => 'Data tidak valid.']);
+if (count($candidates) < 1) {
+    echo json_encode(['ok' => false, 'message' => 'Minimal 1 calon.']);
+    exit;
 }
-
-if (!hash_equals(SETTINGS_PASSWORD, (string) ($input['password'] ?? ''))) {
-    respond(401, ['ok' => false, 'message' => 'Password tidak valid. Buka ulang halaman Pengaturan.']);
-}
-
-$hexPattern = '/^#[0-9A-Fa-f]{6}$/';
-$idPattern  = '/^[A-Za-z0-9_-]{1,40}$/';
-
-// --- Validasi calon ---
-$rawCandidates = $input['candidates'] ?? [];
-if (!is_array($rawCandidates) || count($rawCandidates) < 2 || count($rawCandidates) > 10) {
-    respond(422, ['ok' => false, 'message' => 'Jumlah calon harus antara 2 sampai 10.']);
-}
-
-$candidates = [];
-$seenIds = [];
-foreach (array_values($rawCandidates) as $i => $c) {
-    $id    = (string) ($c['id'] ?? '');
-    $nama  = trim((string) ($c['nama'] ?? ''));
-    $warna = (string) ($c['warna'] ?? '');
-
-    if (!preg_match($idPattern, $id) || $id === 'tidak_sah') {
-        respond(422, ['ok' => false, 'message' => 'ID calon tidak valid.']);
+foreach ($candidates as $c) {
+    if (empty($c['nama']) || empty($c['id'])) {
+        echo json_encode(['ok' => false, 'message' => 'Data calon tidak lengkap.']);
+        exit;
     }
-    if (isset($seenIds[$id])) {
-        respond(422, ['ok' => false, 'message' => 'ID calon duplikat terdeteksi.']);
+}
+
+if (count($tps) < 1) {
+    echo json_encode(['ok' => false, 'message' => 'Minimal 1 TPS.']);
+    exit;
+}
+
+$usernames = [];
+foreach ($tps as $i => $t) {
+    if (empty($t['username']) || empty($t['password'])) {
+        echo json_encode(['ok' => false, 'message' => 'Username & password TPS ' . ($i+1) . ' wajib diisi.']);
+        exit;
     }
-    $seenIds[$id] = true;
-
-    if ($nama === '' || mb_strlen($nama) > 60) {
-        respond(422, ['ok' => false, 'message' => 'Nama calon tidak boleh kosong (maks 60 karakter).']);
+    $u = strtolower($t['username']);
+    if (isset($usernames[$u])) {
+        echo json_encode(['ok' => false, 'message' => 'Username "' . $t['username'] . '" dipakai lebih dari satu TPS.']);
+        exit;
     }
-    if (!preg_match($hexPattern, $warna)) {
-        respond(422, ['ok' => false, 'message' => 'Format warna calon "' . $nama . '" tidak valid.']);
-    }
-
-    $candidates[] = ['id' => $id, 'no' => $i + 1, 'nama' => $nama, 'warna' => strtoupper($warna)];
-}
-
-// --- Validasi suara tidak sah ---
-$tsInput = $input['tidak_sah'] ?? [];
-$tsNama  = trim((string) ($tsInput['nama'] ?? ''));
-$tsWarna = (string) ($tsInput['warna'] ?? '');
-
-if ($tsNama === '' || mb_strlen($tsNama) > 60) {
-    respond(422, ['ok' => false, 'message' => 'Label suara tidak sah tidak boleh kosong.']);
-}
-if (!preg_match($hexPattern, $tsWarna)) {
-    respond(422, ['ok' => false, 'message' => 'Format warna suara tidak sah tidak valid.']);
-}
-$tidakSah = ['id' => 'tidak_sah', 'nama' => $tsNama, 'warna' => strtoupper($tsWarna)];
-
-// --- Validasi TPS (id & nama diregenerasi otomatis berdasar urutan) ---
-$rawTps = $input['tps'] ?? [];
-if (!is_array($rawTps) || count($rawTps) < 1 || count($rawTps) > 50) {
-    respond(422, ['ok' => false, 'message' => 'Jumlah TPS harus antara 1 sampai 50.']);
-}
-
-$tps = [];
-foreach (array_values($rawTps) as $i => $t) {
-    $dpt = $t['dpt'] ?? 0;
-    if (!is_numeric($dpt) || $dpt < 0) {
-        respond(422, ['ok' => false, 'message' => 'DPT TPS ' . ($i + 1) . ' harus berupa angka positif.']);
-    }
-    $tps[] = ['id' => 'tps' . ($i + 1), 'nama' => 'TPS ' . ($i + 1), 'dpt' => (int) $dpt];
-}
-
-// --- Validasi total DPT ---
-$totalDpt = $input['total_dpt'] ?? 0;
-if (!is_numeric($totalDpt) || $totalDpt < 0) {
-    respond(422, ['ok' => false, 'message' => 'Total hak suara harus berupa angka positif.']);
+    $usernames[$u] = true;
 }
 
 $settings = [
-    'candidates' => $candidates,
-    'tidak_sah'  => $tidakSah,
-    'tps'        => $tps,
-    'total_dpt'  => (int) $totalDpt,
+    'candidates' => array_values(array_map(function ($c) {
+        return [
+            'id'    => (string)$c['id'],
+            'no'    => (int)($c['no'] ?? 0),
+            'nama'  => trim($c['nama']),
+            'warna' => $c['warna'] ?? '#2563EB',
+        ];
+    }, $candidates)),
+    'tidak_sah' => [
+        'id'    => $tidakSah['id'] ?? 'tidaksah',
+        'nama'  => trim($tidakSah['nama'] ?? 'Tidak Sah'),
+        'warna' => $tidakSah['warna'] ?? '#94A3B8',
+    ],
+    'tps' => array_values(array_map(function ($t, $i) {
+        return [
+            'id'       => (string)($t['id'] ?? uniqid('tps')),
+            'nama'     => trim($t['nama'] ?? ('TPS ' . ($i + 1))),
+            'dpt'      => (int)($t['dpt'] ?? 0),
+            'saksi'    => trim($t['saksi'] ?? ''),
+            'username' => trim($t['username']),
+            'password' => trim($t['password']),
+        ];
+    }, $tps, array_keys($tps))),
+    'total_dpt' => $totalDpt,
 ];
 
 try {
     $client = new FirebaseClient($cfg['firebase']['database_url'], $cfg['firebase']['database_secret']);
     $client->put($cfg['db_path'] . '/settings', $settings);
-
-    respond(200, ['ok' => true, 'message' => 'Pengaturan berhasil disimpan.']);
+    echo json_encode(['ok' => true]);
 } catch (Throwable $e) {
-    respond(502, ['ok' => false, 'message' => 'Gagal menghubungi Firebase: ' . $e->getMessage()]);
+    echo json_encode(['ok' => false, 'message' => 'Gagal menyimpan ke server: ' . $e->getMessage()]);
 }

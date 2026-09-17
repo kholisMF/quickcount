@@ -55,13 +55,13 @@ $activePage = 'settings';
             <div class="topbar">
                 <div>
                     <h1>Pengaturan Quick Count</h1>
-                    <div class="breadcrumb">Atur calon, warna, jumlah TPS, dan total hak pilih. Perubahan di sini tidak ikut terhapus saat "Reset Data".</div>
+                    <div class="breadcrumb">Atur calon, warna, jumlah TPS, hak pilih, dan akun petugas TPS. Perubahan di sini tidak ikut terhapus saat "Reset Data".</div>
                 </div>
             </div>
 
             <div class="settings-warn">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="18" height="18"><path d="M12 9v4M12 17h.01M10.29 3.86 1.82 18a1 1 0 0 0 .86 1.5h18.64a1 1 0 0 0 .86-1.5L13.71 3.86a1 1 0 0 0-1.72 0Z"/></svg>
-                <span>Sebaiknya atur halaman ini <b>sebelum</b> penghitungan suara dimulai. Menambah/menghapus calon atau TPS setelah ada data masuk bisa membuat data lama tidak terhubung lagi — lakukan <b>Reset Data</b> setelah mengubah pengaturan bila diperlukan.</span>
+                <span>Sebaiknya atur halaman ini <b>sebelum</b> penghitungan suara dimulai. Setiap TPS punya <b>username &amp; password</b> sendiri untuk login ke halaman Input Transaksi. Bagikan kredensial ke petugas masing-masing TPS.</span>
             </div>
 
             <!-- ===== Daftar Calon ===== -->
@@ -90,10 +90,11 @@ $activePage = 'settings';
             </div>
 
             <!-- ===== TPS & Hak Pilih ===== -->
+            <!-- ===== TPS, Saksi, Akun Petugas & Hak Pilih ===== -->
             <div class="form-card" style="max-width:100%;margin-top:18px;">
                 <div class="panel-head" style="margin-bottom:16px;">
-                    <h2>Jumlah TPS &amp; Hak Pilih</h2>
-                    <span class="hint">DPT tiap TPS dijumlah otomatis</span>
+                    <h2>Daftar TPS, Saksi &amp; Akun Petugas</h2>
+                    <span class="hint">Setiap TPS punya nama, saksi, dan akun login sendiri</span>
                 </div>
 
                 <div class="field">
@@ -106,19 +107,48 @@ $activePage = 'settings';
                 </div>
 
                 <div class="field">
-                    <label>DPT per TPS</label>
-                    <div id="tps-dpt-rows" class="tps-dpt-grid">
+                    <label>Detail per TPS</label>
+                    <div id="tps-dpt-rows" class="tps-list">
                         <?php foreach ($cfg['tps'] as $i => $tps): ?>
-                            <div class="tps-dpt-row">
-                                <span class="tps-dpt-label">TPS <?= $i + 1 ?></span>
-                                <input type="number" min="0" step="1" class="tps-dpt-input" value="<?= (int)$tps['dpt'] ?>">
+                            <div class="tps-card" data-id="<?= htmlspecialchars($tps['id'] ?? 'tps'.($i+1)) ?>">
+                                <div class="tps-card-head">
+                                    <span class="tps-card-num">TPS <?= $i + 1 ?></span>
+                                    <button type="button" class="tps-card-remove" title="Hapus TPS ini">&times;</button>
+                                </div>
+
+                                <div class="tps-card-grid">
+                                    <div class="tps-field">
+                                        <label>Nama TPS</label>
+                                        <input type="text" class="tps-nama-input" value="<?= htmlspecialchars($tps['nama'] ?? ('TPS '.($i+1))) ?>" placeholder="Contoh: TPS 1 Dusun Krajan" autocomplete="off">
+                                    </div>
+
+                                    <div class="tps-field">
+                                        <label>Jumlah DPT</label>
+                                        <input type="number" min="0" step="1" class="tps-dpt-input" value="<?= (int)($tps['dpt'] ?? 0) ?>" placeholder="0">
+                                    </div>
+
+                                    <div class="tps-field">
+                                        <label>Nama Saksi / Petugas</label>
+                                        <input type="text" class="tps-saksi-input" value="<?= htmlspecialchars($tps['saksi'] ?? '') ?>" placeholder="Contoh: Budi Santoso" autocomplete="off">
+                                    </div>
+
+                                    <div class="tps-field">
+                                        <label>Username Login</label>
+                                        <input type="text" class="tps-user-input" value="<?= htmlspecialchars($tps['username'] ?? '') ?>" placeholder="username" autocomplete="off">
+                                    </div>
+
+                                    <div class="tps-field">
+                                        <label>Password Login</label>
+                                        <input type="text" class="tps-pass-input" value="<?= htmlspecialchars($tps['password'] ?? '') ?>" placeholder="password" autocomplete="off">
+                                    </div>
+                                </div>
                             </div>
                         <?php endforeach; ?>
                     </div>
                 </div>
 
                 <div class="sum-row" id="tps-sum-row">
-                    Jumlah dari semua TPS: <b id="tps-sum-total">0</b>
+                    Jumlah DPT dari semua TPS: <b id="tps-sum-total">0</b>
                     <button type="button" class="btn-mini" id="btn-copy-sum">Pakai angka ini &rarr;</button>
                 </div>
 

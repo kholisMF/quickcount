@@ -1,14 +1,11 @@
 <?php
-/**
- * Endpoint penyimpanan transaksi quick count.
- * Menerima JSON dari input.php, memvalidasi, lalu menulis ke Firebase
- * Realtime Database lewat REST API (memakai Database Secret di server).
- */
+session_start();
 
 header('Content-Type: application/json; charset=utf-8');
 
 require __DIR__ . '/includes/helpers.php';
 $cfg = require __DIR__ . '/config.php';
+
 $settings = load_settings($cfg);
 $cfg = apply_settings($cfg, $settings);
 
@@ -27,11 +24,15 @@ $raw = file_get_contents('php://input');
 $input = json_decode($raw, true);
 
 if (!is_array($input)) {
-    respond(400, ['ok' => false, 'message' => 'Data tidak valid.']);
+    respond(400, ['ok' => false, 'message' => 'Payload tidak valid.']);
 }
 
-// --- Validasi TPS ---
-$tpsId = $input['tps_id'] ?? '';
+// --- Ambil & validasi TPS ---
+$tpsId = (string)($input['tps_id'] ?? '');
+if ($tpsId === '') {
+    respond(422, ['ok' => false, 'message' => 'TPS tidak dikenali.']);
+}
+
 $validTps = null;
 foreach ($cfg['tps'] as $tps) {
     if ($tps['id'] === $tpsId) {
@@ -43,7 +44,10 @@ if (!$validTps) {
     respond(422, ['ok' => false, 'message' => 'TPS tidak dikenali.']);
 }
 
-// --- Validasi & susun data suara ---
+if (empty($_SESSION['tps_id']) || $_SESSION['tps_id'] !== $tpsId) {
+    respond(403, ['ok' => false, 'message' => 'Anda tidak berwenang menyimpan data TPS ini. Silakan login ulang.']);
+}
+
 $allowedIds = array_column($cfg['candidates'], 'id');
 $allowedIds[] = $cfg['tidak_sah']['id'];
 
@@ -59,27 +63,23 @@ foreach ($allowedIds as $id) {
     $total += $val;
 }
 
-if ($total > $validTps['dpt']) {
+if ($validTps['dpt'] > 0 && $total > $validTps['dpt']) {
     respond(422, ['ok' => false, 'message' => 'Total suara (' . $total . ') melebihi DPT TPS ini (' . $validTps['dpt'] . ').']);
 }
-
-$petugas = trim((string) ($input['petugas'] ?? ''));
-$timestamp = date('c');
 
 try {
     $client = new FirebaseClient($cfg['firebase']['database_url'], $cfg['firebase']['database_secret']);
 
-    // Simpan / timpa hasil TPS (data resmi per TPS bisa dikoreksi ulang)
     $client->put($cfg['db_path'] . '/suara/' . $tpsId, $suaraData);
 
-    // Catat jejak transaksi untuk audit trail
+    // Audit trail
     $client->push($cfg['db_path'] . '/log', [
         'tps_id'    => $tpsId,
         'tps_nama'  => $validTps['nama'],
+        'petugas'   => $_SESSION['tps_nama'] ?? ($validTps['nama'] ?? 'Tidak diisi'),
         'data'      => $suaraData,
         'total'     => $total,
-        'petugas'   => $petugas !== '' ? $petugas : 'Tidak diisi',
-        'timestamp' => $timestamp,
+        'timestamp' => date('c'),
     ]);
 
     respond(200, ['ok' => true, 'message' => 'Data tersimpan.', 'total' => $total]);
